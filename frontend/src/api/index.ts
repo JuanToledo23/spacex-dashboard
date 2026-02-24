@@ -25,7 +25,7 @@ import type {
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
-  timeout: 15000,
+  timeout: 30000,
 })
 
 export const fetchDashboard = (): Promise<DashboardResponse> =>
