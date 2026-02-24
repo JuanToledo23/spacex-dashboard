@@ -70,7 +70,6 @@
             <p v-if="msg.role === 'user'">
               {{ msg.content }}
             </p>
-            <!-- eslint-disable-next-line vue/no-v-html -->
             <div
               v-else
               class="msg-formatted"

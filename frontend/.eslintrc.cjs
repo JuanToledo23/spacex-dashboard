@@ -26,5 +26,11 @@ module.exports = {
         sourceType: 'module',
       },
     },
+    {
+      files: ['src/components/common/AiChat.vue'],
+      rules: {
+        'vue/no-v-html': 'off',
+      },
+    },
   ],
 }
