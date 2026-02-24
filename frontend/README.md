@@ -102,6 +102,7 @@ Custom D3.js visualizations — each component uses `ResizeObserver` to adapt to
 |------------------|-----------------------------------------------------------------------------|
 | AiChat           | Floating AI assistant with markdown rendering and typewriter effect (lazy-loaded via `defineAsyncComponent`) |
 | DataTable        | Paginated table with clickable rows                                        |
+| ErrorLabPanel    | Easter egg panel for triggering simulated errors (triple-click SPACEX)     |
 | ErrorState       | Error message with retry button and `retrying` spinner state               |
 | FunFact          | AI-generated curiosity banner on site load with auto-dismiss (lazy-loaded via `defineAsyncComponent`) |
 | ImageLightbox    | Full-screen image viewer with keyboard navigation and focus trap           |
@@ -181,6 +182,7 @@ frontend/
 │   │   └── index.ts           # 11 routes with lazy loading
 │   ├── stores/
 │   │   ├── dashboard.ts
+│   │   ├── errorLab.ts
 │   │   ├── fleet.ts
 │   │   ├── launches.ts
 │   │   ├── notifications.ts
@@ -238,6 +240,29 @@ Every view has a tailored loading state that mirrors its actual content structur
 | Launch/Rocket Detail | `hero` + `text` blocks + `card` grid |
 
 The `ErrorState` component includes a `retrying` prop that shows a spinner and "RETRYING..." label during automatic retry operations, avoiding UI flicker.
+
+## Error Testing Lab (Easter Egg)
+
+The dashboard includes a hidden **Error Testing Lab** to demonstrate error handling. See also the [Backend dev endpoint](backend/README.md#error-testing-dev-endpoint).
+
+**How to open:** Triple-click the "SPACEX" brand in the header (three clicks within ~500 ms).
+
+**Panel options:**
+- **Show ErrorState** — Simulates an inline error on Overview with a RETRY button
+- **Show error toast** — Displays a NotificationToast with type `error` (auto-dismisses after 12 s)
+- **API errors (404, 500, 502, 503, timeout)** — Calls the backend `/api/dev/trigger-error` and shows the resulting error on Overview
+
+**Direct API testing** (curl or browser):
+
+```bash
+# Local
+curl "http://localhost:8000/api/dev/trigger-error?code=404"
+curl "http://localhost:8000/api/dev/trigger-error?code=500"
+curl "http://localhost:8000/api/dev/trigger-error?code=timeout"   # waits 5s
+
+# Production
+curl "https://quadsci.juantoledo.com.mx/api/dev/trigger-error?code=404"
+```
 
 ## Tests
 

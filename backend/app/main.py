@@ -11,6 +11,7 @@ from app.api.routes import (
     ai,
     cores,
     dashboard,
+    dev,
     economics,
     emissions,
     health,
@@ -72,3 +73,4 @@ app.include_router(roadster.router)
 app.include_router(emissions.router)
 app.include_router(ai.router)
 app.include_router(notifications.router)
+app.include_router(dev.router)

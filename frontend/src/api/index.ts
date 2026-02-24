@@ -79,4 +79,8 @@ export const sendChatMessage = (message: string, history: ChatMessage[]): Promis
 export const fetchFunFact = (): Promise<FunFactResponse> =>
   api.get('/ai/fun-fact').then((r) => r.data)
 
+/** Trigger a simulated API error (404, 500, 502, 503, timeout) for error-handling demos. */
+export const triggerError = (code: string) =>
+  api.get('/dev/trigger-error', { params: { code } })
+
 export default api

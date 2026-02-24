@@ -109,6 +109,20 @@ Additional features:
 - **Fully responsive** layout (mobile, tablet, desktop) with safe-area support for iPhone
 - **Animated space background** with twinkling stars and shooting stars
 - **Image lightbox** for all galleries
+- **Error Testing Lab** — Easter egg to demonstrate error handling (triple-click SPACEX in header)
+
+## Error Testing Lab
+
+The dashboard includes an **Error Testing Lab** to demonstrate how errors are handled across the stack. Useful for QA, demos, and onboarding.
+
+**How to open:** Triple-click the "SPACEX" brand in the header (three clicks within ~500 ms).
+
+**What it demonstrates:**
+- **ErrorState** — Inline error panel with RETRY button (used across all views)
+- **NotificationToast** — Toast notifications for non-blocking errors
+- **API errors** — Real HTTP responses (404, 500, 502, 503, timeout) from the backend
+
+The backend endpoint `GET /api/dev/trigger-error?code=404|500|502|503|timeout` returns simulated errors. The timeout variant waits 5 seconds before responding. See [Frontend README](frontend/README.md#error-testing-lab-easter-egg) and [Backend README](backend/README.md#error-testing-dev-endpoint) for details.
 
 ## API Endpoints
 
@@ -135,6 +149,7 @@ Additional features:
 | GET    | `/api/ai/fun-fact`       | Random AI-generated SpaceX fun fact  |
 | GET    | `/api/notifications/stream` | Server-Sent Events stream for real-time notifications |
 | POST   | `/api/notifications/send`   | Send test notification (admin/internal)              |
+| GET    | `/api/dev/trigger-error`    | Easter egg: simulated errors (404, 500, 502, 503, timeout) for error-handling demos |
 
 For detailed query parameters and response schemas, see the [Backend README](backend/README.md).
 

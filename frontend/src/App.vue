@@ -24,6 +24,7 @@
     <AiChat />
     <FunFact />
     <NotificationToast />
+    <ErrorLabPanel />
   </div>
 </template>
 
@@ -32,6 +33,7 @@ import { defineAsyncComponent, onMounted } from 'vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
 import AppFooter from '@/components/layout/AppFooter.vue'
 import RouteProgressBar from '@/components/layout/RouteProgressBar.vue'
+import ErrorLabPanel from '@/components/common/ErrorLabPanel.vue'
 import { useNotificationStore } from '@/stores/notifications'
 
 const SpaceBackground = defineAsyncComponent(() => import('@/components/layout/SpaceBackground.vue'))

@@ -214,6 +214,24 @@ The AI service uses Groq (Llama 3.3 70B) to generate responses grounded in real 
 | GET    | `/api/notifications/stream`   | SSE stream for real-time notifications  |
 | POST   | `/api/notifications/send`     | Send test notification                   |
 
+### Error Testing (Dev Endpoint)
+
+| Method | Path                     | Description                                      |
+|--------|--------------------------|--------------------------------------------------|
+| GET    | `/api/dev/trigger-error` | Simulated errors for error-handling demos        |
+
+**Query parameters:**
+
+| Param  | Type   | Values                    | Description                          |
+|--------|--------|---------------------------|--------------------------------------|
+| `code` | string | `404`, `500`, `502`, `503`, `timeout` | Error type to simulate (default: `500`) |
+
+**Behavior:**
+- `404`, `500`, `502`, `503` — Returns immediately with the corresponding HTTP status and structured body `{ code, message, trace_id }`
+- `timeout` — Waits 5 seconds, then returns 504 Gateway Timeout
+
+**Use case:** The frontend Error Testing Lab (triple-click SPACEX) uses this endpoint to demonstrate `ErrorState`, `NotificationToast`, and API error handling. Also useful for manual testing via curl or browser. Rate limited to 30 requests per minute per IP.
+
 ### Error Response Format
 
 All errors follow a consistent structure:
@@ -268,7 +286,7 @@ pytest --cov=app --cov-report=term-missing
 | Total tests | **203** |
 | Code coverage | **96.12%** |
 | Enforced minimum | **90%** (`--cov-fail-under=90` in CI) |
-| Test files | 24 (routes, services, cache, middleware, rate_limit, AI, notifications, etc.) |
+| Test files | 25 (routes, services, cache, middleware, rate_limit, AI, notifications, dev, etc.) |
 
 Tests cover all 14 API route modules, all 15 service modules, error handling, caching behavior, and the AI service. Requires Redis running locally — the CI pipeline uses a Redis service container.
 
@@ -286,7 +304,7 @@ ruff format .          # Auto-format
 backend/
 ├── app/
 │   ├── api/
-│   │   ├── routes/         # One file per resource (14 route modules)
+│   │   ├── routes/         # One file per resource (15 route modules, including dev.py)
 │   │   ├── middleware.py   # Request ID, structured logging, rate limiting (120 req/min)
 │   │   └── rate_limit.py   # Per-endpoint rate limiting
 │   ├── cache/

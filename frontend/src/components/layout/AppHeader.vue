@@ -4,6 +4,7 @@
       <router-link
         to="/"
         class="topbar-brand"
+        @click="onBrandClick"
       >
         <span class="brand-mark">&#9670;</span>
         <span class="brand-text">SPACEX</span>
@@ -154,11 +155,33 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useThemeStore } from '@/stores/theme'
+import { useErrorLabStore } from '@/stores/errorLab'
 import type { NavItem } from '@/types'
 
 const route = useRoute()
 const themeStore = useThemeStore()
+const errorLabStore = useErrorLabStore()
 const dropdownOpen = ref(false)
+
+const BRAND_CLICK_WINDOW_MS = 500
+const BRAND_CLICK_COUNT = 3
+let brandClickCount = 0
+let brandClickTimer: ReturnType<typeof setTimeout> | null = null
+
+function onBrandClick(e: MouseEvent) {
+  brandClickCount++
+  if (brandClickTimer) clearTimeout(brandClickTimer)
+  if (brandClickCount >= BRAND_CLICK_COUNT) {
+    e.preventDefault()
+    brandClickCount = 0
+    errorLabStore.toggle()
+  } else {
+    brandClickTimer = setTimeout(() => {
+      brandClickCount = 0
+      brandClickTimer = null
+    }, BRAND_CLICK_WINDOW_MS)
+  }
+}
 const mobileOpen = ref(false)
 const exploreOpen = ref(false)
 
@@ -213,6 +236,7 @@ function isActive(to: string): boolean {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 28px;
 }
 
 .topbar-brand {
