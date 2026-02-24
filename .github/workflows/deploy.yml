@@ -1,0 +1,75 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 20m
+          script: |
+            set -e
+
+            REPO_URL="https://github.com/${{ github.repository }}.git"
+            APP_DIR=~/spacex-dashboard
+
+            # Clone on first run, pull on subsequent runs
+            if [ ! -d "$APP_DIR" ]; then
+              git clone "$REPO_URL" "$APP_DIR"
+            fi
+
+            cd "$APP_DIR"
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Write environment variables
+            echo "GROQ_API_KEY=${{ secrets.GROQ_API_KEY }}" > .env
+            echo "CORS_ORIGINS=${{ secrets.CORS_ORIGINS }}" >> .env
+
+            # Select docker compose command (v1 vs v2)
+            if command -v docker-compose &> /dev/null; then
+              COMPOSE="docker-compose"
+            else
+              COMPOSE="docker compose"
+            fi
+
+            # Save current image digests for rollback
+            $COMPOSE images -q > /tmp/previous_images.txt 2>/dev/null || true
+
+            # Build and deploy
+            if ! $COMPOSE up -d --build; then
+              echo "Deploy failed — attempting rollback…"
+              $COMPOSE down
+              if [ -s /tmp/previous_images.txt ]; then
+                $COMPOSE up -d
+              fi
+              exit 1
+            fi
+
+            # Verify health
+            sleep 5
+            if ! curl -sf http://localhost/health > /dev/null 2>&1; then
+              echo "WARNING: Health check failed after deploy"
+            fi
+
+            docker system prune -f
+
+            # Enable certbot auto-renewal
+            sudo systemctl start certbot-renew.timer 2>/dev/null || true

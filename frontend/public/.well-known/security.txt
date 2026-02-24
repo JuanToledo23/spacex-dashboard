@@ -1,0 +1,7 @@
+# Security Policy for SpaceX Dashboard
+# https://securitytxt.org/
+
+Contact: mailto:security@spacex-dashboard.example.com
+Preferred-Languages: en, es
+Canonical: https://spacex-dashboard.example.com/.well-known/security.txt
+Expires: 2027-02-14T00:00:00.000Z

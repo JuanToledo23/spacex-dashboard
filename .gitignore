@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+
+# Node
+node_modules/
+frontend/dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment
+.env
+*.env.local
+
+# Docker
+docker-compose.override.yml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Linting cache
+.ruff_cache/
+
+# Playwright / E2E
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Screenshots & test artifacts
+*.png
+!frontend/public/**/*.png
+
+# Logs
+*.log
+logs/
+
+# Frontend build cache
+frontend/.vite/
+frontend/coverage/
+
+docs/
