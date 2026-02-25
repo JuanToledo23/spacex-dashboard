@@ -13,6 +13,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from app.cache.redis_cache import cache
+from app.utils.client_ip import get_client_ip
 
 logger = structlog.get_logger()
 
@@ -29,7 +30,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if not request.url.path.startswith("/api/"):
             return await call_next(request)
 
-        client_ip = request.client.host if request.client else "unknown"
+        client_ip = get_client_ip(request)
         key = f"rl:global:{client_ip}"
 
         try:
