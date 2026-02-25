@@ -69,6 +69,7 @@
           <select
             id="filter-outcome"
             aria-label="Filter by outcome"
+            :value="outcomeSelectValue"
             @change="onSuccessFilter($event.target.value)"
           >
             <option value="">
@@ -88,6 +89,7 @@
           <select
             id="filter-timeline"
             aria-label="Filter by timeline"
+            :value="timelineSelectValue"
             @change="onUpcomingFilter($event.target.value)"
           >
             <option value="">
@@ -108,6 +110,7 @@
             v-if="rocketsStore.items.length"
             id="filter-vehicle"
             aria-label="Filter by vehicle"
+            :value="vehicleSelectValue"
             @change="launchesStore.setFilters({ rocket_id: $event.target.value || null })"
           >
             <option value="">
@@ -231,6 +234,20 @@ const maxLaunches = computed((): number => {
   if (!dashStore.data?.launches_by_rocket?.length) return 1
   return Math.max(...dashStore.data.launches_by_rocket.map((d) => d.count))
 })
+
+const outcomeSelectValue = computed(() => {
+  const s = launchesStore.filters.success
+  if (s === null) return ''
+  return s ? 'true' : 'false'
+})
+
+const timelineSelectValue = computed(() => {
+  const u = launchesStore.filters.upcoming
+  if (u === null) return ''
+  return u ? 'true' : 'false'
+})
+
+const vehicleSelectValue = computed(() => launchesStore.filters.rocket_id ?? '')
 
 function barWidth(count: number): string { return Math.round((count / maxLaunches.value) * 100) + '%' }
 function onSuccessFilter(val: string): void { launchesStore.setFilters({ success: val === '' ? null : val === 'true' }) }
