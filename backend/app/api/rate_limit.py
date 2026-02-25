@@ -9,6 +9,7 @@ from __future__ import annotations
 from fastapi import HTTPException, Request
 
 from app.cache.redis_cache import cache
+from app.utils.client_ip import get_client_ip
 
 
 async def check_rate_limit(
@@ -23,7 +24,7 @@ async def check_rate_limit(
     Uses client IP as identifier. Redis counter is shared across workers.
     Different prefixes create separate counters (e.g. rl:chat vs rl:global).
     """
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     key = f"{prefix}:{client_ip}"
 
     try:
