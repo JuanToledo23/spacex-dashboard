@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     launches_ttl: int = 120  # 2 minutes
     starlink_ttl: int = 300  # 5 minutes
     dashboard_ttl: int = 300  # 5 minutes
+    launch_latest_ttl: int = 120  # 2 minutes
+    launch_next_ttl: int = 120  # 2 minutes
     cores_ttl: int = 86400  # 24 hours (same as rockets)
     launchpads_ttl: int = 86400  # 24 hours
     history_ttl: int = 86400  # 24 hours

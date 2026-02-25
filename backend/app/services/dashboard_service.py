@@ -1,6 +1,10 @@
 """Dashboard aggregation service combining data from all SpaceX sources."""
 
+import asyncio
+
+from app.cache.helpers import cached_fetch
 from app.clients.spacex_client import spacex_client
+from app.config import settings
 from app.schemas.cores import FleetStats
 from app.schemas.dashboard import DashboardResponse, Insight, LaunchHighlight
 from app.schemas.rockets import RocketSummary
@@ -13,6 +17,9 @@ from app.services import (
     starlink_service,
 )
 from app.utils.calculations import success_rate as calc_success_rate
+
+
+CACHE_KEY = "spacex:dashboard"
 
 
 def _build_launch_highlight(raw: dict, rocket_map: dict) -> LaunchHighlight:
@@ -33,13 +40,16 @@ def _build_launch_highlight(raw: dict, rocket_map: dict) -> LaunchHighlight:
     )
 
 
-async def get_dashboard() -> DashboardResponse:
-    rockets = await rocket_service.get_rockets()
-    launches_by_year = await launch_service.get_launches_by_year()
-    all_launches = await launch_service.get_all_launches()
-    starlink_stats = await starlink_service.get_starlink_stats()
-    fleet = await core_service.get_fleet_stats()
-    pads = await launchpad_service.get_launchpads()
+async def _build_dashboard() -> DashboardResponse:
+    """Build dashboard from all sources. Used internally; cache applied at get_dashboard."""
+    rockets, launches_by_year, all_launches, starlink_stats, fleet, pads = await asyncio.gather(
+        rocket_service.get_rockets(),
+        launch_service.get_launches_by_year(),
+        launch_service.get_all_launches(),
+        starlink_service.get_starlink_stats(),
+        core_service.get_fleet_stats(),
+        launchpad_service.get_launchpads(),
+    )
 
     rocket_name_map = {r.id: r.name for r in rockets}
 
@@ -75,18 +85,29 @@ async def get_dashboard() -> DashboardResponse:
         for name, count in sorted(site_counts.items(), key=lambda x: x[1], reverse=True)
     ]
 
-    # Latest and next launch
-    try:
-        latest_raw = await spacex_client.get_latest_launch()
-        latest_launch = _build_launch_highlight(latest_raw, rocket_name_map)
-    except Exception:
-        latest_launch = None
+    # Latest and next launch (parallel, cached)
+    async def _get_latest_cached() -> dict:
+        return await cached_fetch(
+            "spacex:launch:latest",
+            settings.launch_latest_ttl,
+            spacex_client.get_latest_launch,
+        )
 
+    async def _get_next_cached() -> dict:
+        return await cached_fetch(
+            "spacex:launch:next",
+            settings.launch_next_ttl,
+            spacex_client.get_next_launch,
+        )
+
+    latest_result: dict | None = None
+    next_result: dict | None = None
     try:
-        next_raw = await spacex_client.get_next_launch()
-        next_launch = _build_launch_highlight(next_raw, rocket_name_map)
+        latest_result, next_result = await asyncio.gather(_get_latest_cached(), _get_next_cached())
     except Exception:
-        next_launch = None
+        pass
+    latest_launch = _build_launch_highlight(latest_result, rocket_name_map) if latest_result else None
+    next_launch = _build_launch_highlight(next_result, rocket_name_map) if next_result else None
 
     # Recent launches (last 8 past launches)
     past = [lnch for lnch in all_launches if not lnch.get("upcoming")]
@@ -94,7 +115,14 @@ async def get_dashboard() -> DashboardResponse:
     recent_launches = [_build_launch_highlight(lnch, rocket_name_map) for lnch in past_sorted]
 
     # Try AI-generated actionable recommendations, fall back to deterministic
-    insights = await ai_service.generate_ai_insights()
+    insights = await ai_service.generate_ai_insights(
+        prefetched_rockets=rockets,
+        prefetched_launches=all_launches,
+        prefetched_launches_by_year=launches_by_year,
+        prefetched_starlink_stats=starlink_stats,
+        prefetched_fleet=fleet,
+        prefetched_launchpads=pads,
+    )
     if insights is None:
         insights = _generate_insights(
             rockets, successful, failed, total_launches, upcoming, starlink_stats, fleet
@@ -120,6 +148,22 @@ async def get_dashboard() -> DashboardResponse:
         insights=insights,
         launchpads=pads,
     )
+
+
+async def get_dashboard() -> DashboardResponse:
+    """Return dashboard data, served from cache when available."""
+    raw = await cached_fetch(
+        CACHE_KEY,
+        settings.dashboard_ttl,
+        _fetch_dashboard_for_cache,
+    )
+    return DashboardResponse.model_validate(raw)
+
+
+async def _fetch_dashboard_for_cache() -> dict:
+    """Fetch dashboard and return dict for Redis storage."""
+    response = await _build_dashboard()
+    return response.model_dump(mode="json")
 
 
 def _generate_insights(

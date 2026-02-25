@@ -9,16 +9,12 @@ CACHE_KEY = "spacex:starlink"
 
 
 async def _fetch_starlink() -> list[dict]:
-    all_sats: list[dict] = []
-    page = 1
-    while True:
-        result = await spacex_client.query_starlink(query={}, options={"page": page, "limit": 500})
-        docs = result.get("docs", [])
-        all_sats.extend(docs)
-        if not result.get("hasNextPage", False):
-            break
-        page += 1
-    return all_sats
+    """Fetch all Starlink satellites in one request via pagination: false."""
+    result = await spacex_client.query_starlink(
+        query={},
+        options={"pagination": False},
+    )
+    return result.get("docs", [])
 
 
 async def get_all_starlink() -> list[dict]:

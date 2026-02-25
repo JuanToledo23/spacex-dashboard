@@ -58,7 +58,7 @@ spacex-dashboard/
 │   │   ├── utils/          # Shared calculations
 │   │   ├── config.py       # Environment-based settings
 │   │   └── main.py         # Application entry point
-│   └── tests/              # 203 Pytest tests (96% coverage)
+│   └── tests/              # 208 Pytest tests (96% coverage)
 ├── frontend/               # Vue 3 SPA (TypeScript strict)
 │   ├── src/
 │   │   ├── api/            # Axios HTTP client (17 functions)
@@ -74,8 +74,6 @@ spacex-dashboard/
 │   │   ├── views/          # 11 page components
 │   │   └── __tests__/      # 242 Vitest tests (47 files)
 │   └── package.json
-├── docs/
-│   └── DATA_CONTRACTS.md   # Data models for RAG/LLM indexing
 ├── .github/workflows/
 │   ├── ci.yml              # Lint, type-check, test, coverage, security audit
 │   └── deploy.yml          # Deploy to EC2 via SSH with rollback
@@ -171,21 +169,40 @@ GROQ_API_KEY=your_key_here
 
 Get a free key at [console.groq.com](https://console.groq.com).
 
+### How the AI Gets Context
+
+The AI service uses a **context builder** (`_build_data_context`) that assembles a compact text summary of all SpaceX program data before sending it to the LLM. The context includes:
+
+- **Missions** — Total launches, success rate, launches by year
+- **Fleet** — Active boosters, landings, landing success rate
+- **Starlink** — Total satellites tracked
+- **Rockets** — Per-rocket launch stats and success rates
+- **Emissions** — CO2 by vehicle, annual trends, fuel breakdown, reuse savings
+- **Economics** — Spend by vehicle, annual trends, top customers, mass by orbit
+- **History** — Last 15 milestones
+- **Landing** — Pad stats, RTLS vs ASDS comparison
+- **Launch sites** — Launchpad performance
+- **Roadster** — Starman telemetry (speed, distance, orbit)
+
+When `generate_ai_insights` is called from the dashboard, it receives **prefetched data** (rockets, launches, starlink stats, fleet, launchpads) already fetched for the Overview page, avoiding redundant service calls. For chat and fun-fact, the context builder fetches fresh data from the cached services. All data is formatted with markdown-style section headers for the LLM to parse.
+
 ## Caching Strategy
 
-| Resource   | TTL    | Rationale                              |
-|------------|--------|----------------------------------------|
-| Rockets    | 24 h   | Rarely changes                         |
-| Launches   | 2 min  | Updates frequently around launch events |
-| Starlink   | 5 min  | Large dataset, moderate update rate    |
-| Dashboard  | 5 min  | Aggregated from multiple sources       |
-| Economics  | 5 min  | Derived from launches and rockets      |
-| Emissions  | 5 min  | Derived from launches and rockets      |
-| Cores      | 24 h   | Changes infrequently                   |
-| Launchpads | 24 h   | Static infrastructure data             |
-| History    | 24 h   | Historical events, rarely updated      |
-| Landing    | 24 h   | Pad data changes infrequently          |
-| Roadster   | 24 h   | Telemetry updates slowly               |
+| Resource      | TTL    | Rationale                              |
+|---------------|--------|----------------------------------------|
+| Rockets       | 24 h   | Rarely changes                         |
+| Launches      | 2 min  | Updates frequently around launch events |
+| Starlink      | 5 min  | Large dataset, moderate update rate    |
+| Dashboard     | 5 min  | Full response cached; avoids re-aggregation |
+| Launch latest | 2 min  | Latest completed launch                |
+| Launch next   | 2 min  | Next scheduled launch                  |
+| Economics     | 5 min  | Derived from launches and rockets      |
+| Emissions     | 5 min  | Derived from launches and rockets      |
+| Cores         | 24 h   | Changes infrequently                   |
+| Launchpads    | 24 h   | Static infrastructure data             |
+| History       | 24 h   | Historical events, rarely updated      |
+| Landing       | 24 h   | Pad data changes infrequently          |
+| Roadster      | 24 h   | Telemetry updates slowly               |
 
 **Stampede prevention:** On cache miss, a Redis `SET NX` lock is acquired before calling the SpaceX API. Concurrent requests wait briefly and read from cache once it is populated, avoiding redundant upstream calls.
 
@@ -204,7 +221,7 @@ The project maintains strict quality standards enforced through automated toolin
 
 | Metric | Value |
 |---|---|
-| Total tests | **445** (203 backend + 242 frontend) |
+| Total tests | **450** (208 backend + 242 frontend) |
 | Backend coverage | **96%** (enforced minimum: 90%) |
 | Backend lint errors | **0** (Ruff check + format) |
 | Frontend lint errors | **0** (ESLint, 1 intentional warning for `v-html` in AI chat markdown) |
@@ -221,6 +238,14 @@ The project maintains strict quality standards enforced through automated toolin
 ## Performance
 
 The frontend is optimized for fast initial load and smooth navigation.
+
+**Overview load optimizations (backend):**
+
+- **Parallel fetches** — Rockets, launches, Starlink stats, fleet, and launchpads are fetched concurrently via `asyncio.gather`, reducing cold-cache load time by ~40–60%
+- **Prefetched AI context** — When generating insights for the Overview, the AI service receives data already fetched for the dashboard instead of re-fetching, saving ~3–8 seconds
+- **Dashboard cache** — The full `/api/dashboard` response is cached (5 min TTL); subsequent loads return in ~50–200 ms
+- **Latest/next cache** — Latest and next launch endpoints are cached (2 min TTL) to avoid repeated SpaceX API calls
+- **Starlink single request** — Starlink data uses `pagination: false` for one API call instead of 12+ paginated requests
 
 **Lazy loading:**
 
@@ -275,7 +300,7 @@ This project was iteratively evaluated and improved through a structured AI-assi
 | Tests & Coverage | 9.8 | 445 tests, 96% backend coverage, 47 frontend test files covering all views/charts |
 | DevOps & CI/CD | 9.8 | Docker healthchecks, coverage enforcement, security scanning, pre-commit hooks |
 | Security | 9.7 | Global rate limiting, prompt-injection sanitization, security.txt, HSTS/CSP headers |
-| Documentation | 9.5 | 5 documentation files, API reference, data contracts, deployment guide |
+| Documentation | 9.5 | 3 README files (project, backend, frontend), API reference, deployment guide |
 | UX/UI & Accessibility | 9.8 | Skip-to-content, focus trap, ARIA on 13 charts, route progress bar, view transitions |
 | Performance | 9.0 | 92% bundle reduction, lazy-loading, deferred animations, chunk splitting |
 | Maintainability | 9.7 | 100% docstrings, pre-commit hooks, coverage thresholds, CI hardening |
@@ -287,7 +312,7 @@ This project was iteratively evaluated and improved through a structured AI-assi
 These numbers are not estimates — they are the output of automated tooling:
 
 ```
-Backend:  203 tests passed | 96.12% coverage | 0 Ruff errors | 80 files formatted
+Backend:  208 tests passed | 96.12% coverage | 0 Ruff errors | 80 files formatted
 Frontend: 242 tests passed | 47 test files   | 0 ESLint errors | 0 type errors
 Bundle:   12.94 KB main | 105 KB vendor-vue | 88 KB vendor-d3 (all gzipped ~50% smaller)
 ```

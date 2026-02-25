@@ -65,12 +65,37 @@ def _get_client() -> AsyncGroq:
     return AsyncGroq(api_key=settings.groq_api_key)
 
 
-async def _build_data_context() -> str:
-    """Gather all SpaceX data from cache into a compact text summary for the LLM."""
-    rockets = await rocket_service.get_rockets()
-    all_launches = await launch_service.get_all_launches()
-    starlink_stats = await starlink_service.get_starlink_stats()
-    fleet = await core_service.get_fleet_stats()
+async def _build_data_context(
+    *,
+    prefetched_rockets=None,
+    prefetched_launches=None,
+    prefetched_launches_by_year=None,
+    prefetched_starlink_stats=None,
+    prefetched_fleet=None,
+    prefetched_launchpads=None,
+) -> str:
+    """Gather all SpaceX data from cache into a compact text summary for the LLM.
+    Accepts optional prefetched data to avoid redundant fetches when called from dashboard.
+    """
+    if prefetched_rockets is not None:
+        rockets = prefetched_rockets
+    else:
+        rockets = await rocket_service.get_rockets()
+
+    if prefetched_launches is not None:
+        all_launches = prefetched_launches
+    else:
+        all_launches = await launch_service.get_all_launches()
+
+    if prefetched_starlink_stats is not None:
+        starlink_stats = prefetched_starlink_stats
+    else:
+        starlink_stats = await starlink_service.get_starlink_stats()
+
+    if prefetched_fleet is not None:
+        fleet = prefetched_fleet
+    else:
+        fleet = await core_service.get_fleet_stats()
 
     total = len(all_launches)
     successful = sum(1 for lnch in all_launches if lnch.get("success") is True)
@@ -85,7 +110,10 @@ async def _build_data_context() -> str:
         for r in rockets
     ]
 
-    by_year = await launch_service.get_launches_by_year()
+    if prefetched_launches_by_year is not None:
+        by_year = prefetched_launches_by_year
+    else:
+        by_year = await launch_service.get_launches_by_year()
     year_lines = [
         f"  - {y.year}: {y.total} launches ({y.successes} ok, {y.failures} failed)" for y in by_year
     ]
@@ -210,7 +238,10 @@ Pads:
 
     # Launchpads (launch sites)
     try:
-        launchpads = await launchpad_service.get_launchpads()
+        if prefetched_launchpads is not None:
+            launchpads = prefetched_launchpads
+        else:
+            launchpads = await launchpad_service.get_launchpads()
         lp_lines = [
             f"  - {lp.full_name} ({lp.locality},"
             f" {lp.region}):"
@@ -245,12 +276,29 @@ VALID_PRIORITIES = {"high", "medium", "low"}
 VALID_DOMAINS = {"missions", "fleet", "economics", "emissions", "starlink", "landing"}
 
 
-async def generate_ai_insights() -> list[Insight] | None:
-    """Generate AI-powered actionable recommendations. Returns None if unavailable."""
+async def generate_ai_insights(
+    *,
+    prefetched_rockets=None,
+    prefetched_launches=None,
+    prefetched_launches_by_year=None,
+    prefetched_starlink_stats=None,
+    prefetched_fleet=None,
+    prefetched_launchpads=None,
+) -> list[Insight] | None:
+    """Generate AI-powered actionable recommendations. Returns None if unavailable.
+    Accepts optional prefetched data from dashboard to avoid redundant service calls.
+    """
     if not _is_available():
         return None
 
-    data_context = await _build_data_context()
+    data_context = await _build_data_context(
+        prefetched_rockets=prefetched_rockets,
+        prefetched_launches=prefetched_launches,
+        prefetched_launches_by_year=prefetched_launches_by_year,
+        prefetched_starlink_stats=prefetched_starlink_stats,
+        prefetched_fleet=prefetched_fleet,
+        prefetched_launchpads=prefetched_launchpads,
+    )
 
     try:
         client = _get_client()

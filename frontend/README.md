@@ -207,6 +207,10 @@ frontend/
 └── package.json
 ```
 
+## API & Loading
+
+The Axios client ([`src/api/index.ts`](src/api/index.ts)) uses a 30-second timeout for all API requests. The Overview page fetches `/api/dashboard`, which the backend optimizes with parallel fetches, full-response caching (5 min), and prefetched AI context. Cold-cache loads typically complete in 6–12 seconds; cached loads return in under 1 second.
+
 ## Build Optimization
 
 Vite is configured with `manualChunks` in `vite.config.ts` to split vendor dependencies into independently cacheable chunks:

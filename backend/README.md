@@ -50,6 +50,16 @@ Each request flows through this pipeline:
 4. On miss, the service acquires a Redis lock (`SET NX`), calls the **SpaceX client**, transforms the response, caches it, and returns
 5. Concurrent requests that arrive during a cache miss wait briefly and read from cache once populated
 
+## Performance (Overview)
+
+The dashboard endpoint is optimized for fast initial load:
+
+- **Parallel fetches** — Rockets, launches, Starlink stats, fleet, and launchpads are fetched concurrently via `asyncio.gather`
+- **Prefetched AI context** — `generate_ai_insights` receives data already fetched for the dashboard instead of re-fetching
+- **Dashboard cache** — The full response is cached (5 min TTL); subsequent loads return from Redis
+- **Latest/next cache** — Latest and next launch are cached (2 min TTL) to avoid repeated SpaceX API calls
+- **Starlink single request** — Uses `pagination: false` for one API call instead of 12+ paginated requests
+
 ## Setup
 
 ### Prerequisites
@@ -86,6 +96,8 @@ The API starts at http://localhost:8000. Interactive docs at http://localhost:80
 | `LAUNCHES_TTL`     | `120`                              | Launches cache TTL             |
 | `STARLINK_TTL`     | `300`                              | Starlink cache TTL             |
 | `DASHBOARD_TTL`    | `300`                              | Dashboard cache TTL            |
+| `LAUNCH_LATEST_TTL`| `120`                              | Latest launch cache TTL (2 min)|
+| `LAUNCH_NEXT_TTL`  | `120`                              | Next launch cache TTL (2 min)  |
 | `CORES_TTL`        | `86400`                            | Cores/fleet cache TTL          |
 | `LAUNCHPADS_TTL`   | `86400`                            | Launchpads cache TTL           |
 | `HISTORY_TTL`      | `86400`                            | History cache TTL              |
@@ -203,7 +215,9 @@ All values can be set via environment variables or a `.env` file. See [.env.exam
 }
 ```
 
-The AI service uses Groq (Llama 3.3 70B) to generate responses grounded in real SpaceX data. The chat context includes data from all dashboard sources: missions, rockets, fleet/booster stats, Starlink satellites, economics, emissions, historical milestones, landing pads, launch sites, and Roadster telemetry. Chat responses are formatted with markdown (bold, lists, paragraphs). The fun-fact endpoint generates a short, surprising curiosity (max ~25 words) that varies on each call. If `GROQ_API_KEY` is not set, the status endpoint returns `{ "available": false }` and the other AI endpoints return a 503 or helpful message.
+The AI service uses Groq (Llama 3.3 70B) to generate responses grounded in real SpaceX data. Chat responses are formatted with markdown (bold, lists, paragraphs). The fun-fact endpoint generates a short, surprising curiosity (max ~25 words) that varies on each call. If `GROQ_API_KEY` is not set, the status endpoint returns `{ "available": false }` and the other AI endpoints return a 503 or helpful message.
+
+**How the AI gets context:** The `_build_data_context` function assembles a compact text summary from all dashboard data sources: missions, rockets, fleet, Starlink, emissions, economics, history, landing pads, launch sites, and Roadster telemetry. When `generate_ai_insights` is called from the dashboard, it receives prefetched data (rockets, launches, starlink stats, fleet, launchpads) already fetched for the Overview, avoiding redundant service calls. For chat and fun-fact, the context builder fetches fresh data from the cached services.
 
 **Input sanitization:** The `ChatRequest` schema enforces a 2,000 character limit on messages and uses a `field_validator` to strip common prompt-injection patterns (e.g., `ignore previous instructions`, `system:`, `[INST]`) before the message reaches the LLM. AI endpoints also have dedicated rate limits: chat is limited to 20 requests per minute and fun-fact to 10 requests per minute.
 
@@ -257,19 +271,21 @@ Every cacheable resource uses the same pattern:
 
 This prevents cache stampedes where many requests would simultaneously hit the upstream API.
 
-| Resource   | TTL    |
-|------------|--------|
-| Rockets    | 24 h   |
-| Launches   | 2 min  |
-| Starlink   | 5 min  |
-| Dashboard  | 5 min  |
-| Economics  | 5 min  |
-| Emissions  | 5 min  |
-| Cores      | 24 h   |
-| Launchpads | 24 h   |
-| History    | 24 h   |
-| Landing    | 24 h   |
-| Roadster   | 24 h   |
+| Resource      | TTL    |
+|---------------|--------|
+| Rockets       | 24 h   |
+| Launches      | 2 min  |
+| Starlink      | 5 min  |
+| Dashboard     | 5 min  |
+| Launch latest | 2 min  |
+| Launch next   | 2 min  |
+| Economics     | 5 min  |
+| Emissions     | 5 min  |
+| Cores         | 24 h   |
+| Launchpads    | 24 h   |
+| History       | 24 h   |
+| Landing       | 24 h   |
+| Roadster      | 24 h   |
 
 ## Testing
 
@@ -283,7 +299,7 @@ pytest --cov=app --cov-report=term-missing
 
 | Metric | Value |
 |---|---|
-| Total tests | **203** |
+| Total tests | **208** |
 | Code coverage | **96.12%** |
 | Enforced minimum | **90%** (`--cov-fail-under=90` in CI) |
 | Test files | 25 (routes, services, cache, middleware, rate_limit, AI, notifications, dev, etc.) |
