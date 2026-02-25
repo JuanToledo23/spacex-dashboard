@@ -18,7 +18,6 @@ from app.services import (
 )
 from app.utils.calculations import success_rate as calc_success_rate
 
-
 CACHE_KEY = "spacex:dashboard"
 
 
@@ -106,7 +105,9 @@ async def _build_dashboard() -> DashboardResponse:
         latest_result, next_result = await asyncio.gather(_get_latest_cached(), _get_next_cached())
     except Exception:
         pass
-    latest_launch = _build_launch_highlight(latest_result, rocket_name_map) if latest_result else None
+    latest_launch = (
+        _build_launch_highlight(latest_result, rocket_name_map) if latest_result else None
+    )
     next_launch = _build_launch_highlight(next_result, rocket_name_map) if next_result else None
 
     # Recent launches (last 8 past launches)
